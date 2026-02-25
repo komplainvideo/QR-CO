@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="QR Counter">
+  <title>QR Counter</title>
+  <link rel="manifest" href="/manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2e;
+      --accent: #00ff88;
+      --accent2: #ff6b35;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --danger: #ff4466;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    .header { text-align: center; padding: 24px 0 20px; }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--accent), #00ccff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header p { color: var(--muted); font-size: 0.85rem; margin-top: 4px; font-family: 'Space Mono', monospace; }
+
+    .counter-display {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 20px;
+      text-align: center;
+      margin: 16px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .counter-display::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .counter-number {
+      font-size: 5rem;
+      font-weight: 800;
+      font-family: 'Space Mono', monospace;
+      color: var(--accent);
+      line-height: 1;
+      text-shadow: 0 0 40px rgba(0,255,136,0.3);
+      transition: transform 0.1s ease;
+    }
+    .counter-number.bump { transform: scale(1.15); }
+    .counter-label { font-size: 0.7rem; letter-spacing: 4px; color: var(--muted); margin-top: 8px; font-family: 'Space Mono', monospace; }
+    .last-scan {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 12px;
+      font-family: 'Space Mono', monospace;
+      word-break: break-all;
+      padding: 8px 12px;
+      background: rgba(0,255,136,0.05);
+      border-radius: 8px;
+      display: none;
+    }
+    .last-scan.show { display: block; }
+    .last-scan span { color: var(--accent); }
+
+    .history-section { margin: 12px 0; }
+    .history-title { font-size: 0.7rem; letter-spacing: 3px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 8px; }
+    .history-list { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .history-list::-webkit-scrollbar { width: 3px; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      font-family: 'Space Mono', monospace;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+    .history-item .hi-data { color: var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:8px; }
+    .history-item .hi-time { color: var(--muted); font-size:0.65rem; flex-shrink:0; }
+    .history-item .hi-num { color: var(--accent); font-size:0.7rem; font-weight:700; margin-right:8px; flex-shrink:0; }
+
+    .scanner-container {
+      position: relative;
+      background: #000;
+      border-radius: 20px;
+      overflow: hidden;
+      margin: 16px 0;
+      display: none;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 30px rgba(0,255,136,0.2);
+    }
+    .scanner-container.active { display: block; }
+    #video { width: 100%; display: block; border-radius: 18px; }
+    .scan-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+    .scan-frame { width:200px; height:200px; position:relative; }
+    .scan-frame::before, .scan-frame::after, .scan-frame .corner-br, .scan-frame .corner-bl {
+      content:''; position:absolute; width:30px; height:30px; border-color:var(--accent); border-style:solid;
+    }
+    .scan-frame::before { top:0; left:0; border-width:3px 0 0 3px; }
+    .scan-frame::after { top:0; right:0; border-width:3px 3px 0 0; }
+    .scan-frame .corner-br { bottom:0; right:0; border-width:0 3px 3px 0; }
+    .scan-frame .corner-bl { bottom:0; left:0; border-width:0 0 3px 3px; }
+    .scan-line {
+      position:absolute; top:0; left:10px; right:10px; height:2px;
+      background:linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation:scanAnim 2s linear infinite;
+      box-shadow:0 0 8px var(--accent);
+    }
+    @keyframes scanAnim { 0%{top:10px} 100%{top:calc(100% - 12px)} }
+    .scan-status { position:absolute; bottom:12px; left:0; right:0; text-align:center; font-size:0.75rem; color:var(--accent); font-family:'Space Mono',monospace; letter-spacing:1px; }
+
+    .btn-row { display:flex; gap:10px; margin:12px 0; }
+    .btn {
+      flex:1; padding:14px; border:none; border-radius:14px;
+      font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:600;
+      cursor:pointer; transition:all 0.15s ease;
+      display:flex; align-items:center; justify-content:center; gap:6px;
+    }
+    .btn:active { transform:scale(0.96); }
+    .btn-primary { background:var(--accent); color:#0a0a0f; }
+    .btn-stop { background:var(--danger); color:#fff; }
+    .btn-manual { background:var(--accent2); color:#fff; }
+    .btn-reset { background:var(--card); color:var(--muted); border:1px solid var(--border); }
+
+    .error-box {
+      background:rgba(255,68,102,0.1); border:1px solid rgba(255,68,102,0.3);
+      border-radius:12px; padding:12px 16px; font-size:0.8rem; color:#ff8899;
+      font-family:'Space Mono',monospace; display:none; margin:8px 0;
+    }
+    .error-box.show { display:block; }
+
+    .success-flash { position:fixed; inset:0; background:rgba(0,255,136,0.08); pointer-events:none; z-index:999; opacity:0; transition:opacity 0.15s; }
+    .success-flash.show { opacity:1; }
+
+    .install-banner {
+      background:linear-gradient(135deg,#1a1a2e,#16213e);
+      border:1px solid rgba(0,255,136,0.2); border-radius:14px;
+      padding:14px 16px; display:none; align-items:center; gap:10px; margin:12px 0;
+    }
+    .install-banner.show { display:flex; }
+    .install-banner p { flex:1; font-size:0.8rem; color:var(--muted); line-height:1.4; }
+    .install-banner p strong { color:var(--accent); }
+    .btn-install { background:var(--accent); color:#0a0a0f; border:none; border-radius:8px; padding:8px 14px; font-family:'Syne',sans-serif; font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+
+    .stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:12px 0; }
+    .stat-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 8px; text-align:center; }
+    .stat-card .sv { font-size:1.4rem; font-weight:800; font-family:'Space Mono',monospace; color:var(--accent); }
+    .stat-card .sl { font-size:0.6rem; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+
+    canvas { display:none; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:flex-end; backdrop-filter:blur(4px); }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--card); border:1px solid var(--border); border-radius:24px 24px 0 0; padding:24px; width:100%; animation:slideUp 0.3s ease; }
+    @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .modal h3 { font-size:1.1rem; font-weight:800; margin-bottom:16px; }
+    .modal input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); font-family:'Space Mono',monospace; font-size:0.9rem; outline:none; margin-bottom:12px; }
+    .modal input:focus { border-color:var(--accent); }
+    .modal-btns { display:flex; gap:10px; }
+    .modal-btns .btn { flex:1; }
+  </style>
+</head>
+<body>
+<div class="success-flash" id="flash"></div>
+<div class="app">
+  <div class="header">
+    <h1>⬡ QR COUNTER</h1>
+    <p>// scan & tally QR codes</p>
+  </div>
+
+  <div class="install-banner" id="installBanner">
+    <p><strong>Install sebagai App!</strong><br>Tap ⋮ → Add to Home Screen</p>
+    <button class="btn-install" id="installBtn">Install</button>
+  </div>
+
+  <div class="counter-display">
+    <div class="counter-number" id="counterNum">0</div>
+    <div class="counter-label">TOTAL SCAN</div>
+    <div class="last-scan" id="lastScan">Last: <span id="lastData">—</span></div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="sv" id="statUniq">0</div><div class="sl">UNIK</div></div>
+    <div class="stat-card"><div class="sv" id="statDupl">0</div><div class="sl">DUPLIKAT</div></div>
+    <div class="stat-card"><div class="sv" id="statManual">0</div><div class="sl">MANUAL</div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnScan">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>
+      Mulai Scan QR
+    </button>
+  </div>
+
+  <div class="scanner-container" id="scannerBox">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="scan-overlay">
+      <div class="scan-frame">
+        <div class="scan-line"></div>
+        <div class="corner-br"></div>
+        <div class="corner-bl"></div>
+      </div>
+    </div>
+    <div class="scan-status" id="scanStatus">Arahkan ke QR Code...</div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-manual" id="btnManual">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      + Manual
+    </button>
+    <button class="btn btn-reset" id="btnReset">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Reset
+    </button>
+  </div>
+
+  <div class="history-section" id="historySection" style="display:none">
+    <div class="history-title">// RIWAYAT SCAN</div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>+ Tambah Manual</h3>
+    <input type="text" id="manualInput" placeholder="Masukkan data / kode...">
+    <div class="modal-btns">
+      <button class="btn btn-reset" id="modalCancel">Batal</button>
+      <button class="btn btn-manual" id="modalConfirm">Tambah</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let count=0, manualCount=0, scannedData={}, history=[], scanning=false, stream=null, raf=null, deferredPrompt=null;
+
+  const counterEl=document.getElementById('counterNum');
+  const lastScanEl=document.getElementById('lastScan');
+  const lastDataEl=document.getElementById('lastData');
+  const scannerBox=document.getElementById('scannerBox');
+  const video=document.getElementById('video');
+  const canvas=document.getElementById('canvas');
+  const ctx=canvas.getContext('2d');
+  const btnScan=document.getElementById('btnScan');
+  const btnManual=document.getElementById('btnManual');
+  const btnReset=document.getElementById('btnReset');
+  const errorBox=document.getElementById('errorBox');
+  const histSection=document.getElementById('historySection');
+  const histList=document.getElementById('historyList');
+  const flash=document.getElementById('flash');
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); deferredPrompt=e;
+    document.getElementById('installBanner').classList.add('show');
+  });
+  document.getElementById('installBtn').addEventListener('click', () => {
+    if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; document.getElementById('installBanner').classList.remove('show'); }); }
+  });
+
+  function showError(msg){ errorBox.textContent=msg; errorBox.classList.add('show'); setTimeout(()=>errorBox.classList.remove('show'),4000); }
+  function flashSuccess(){ flash.classList.add('show'); setTimeout(()=>flash.classList.remove('show'),200); }
+  function bump(){ counterEl.classList.add('bump'); setTimeout(()=>counterEl.classList.remove('bump'),150); }
+
+  function addScan(data, isManual=false){
+    const now=new Date();
+    const timeStr=now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    count++;
+    const isDup=!!scannedData[data];
+    scannedData[data]=(scannedData[data]||0)+1;
+    if(isManual) manualCount++;
+    counterEl.textContent=count;
+    bump(); flashSuccess();
+    lastDataEl.textContent=data.length>30?data.slice(0,30)+'...':data;
+    lastScanEl.classList.add('show');
+    const uniq=Object.keys(scannedData).length;
+    document.getElementById('statUniq').textContent=uniq;
+    document.getElementById('statDupl').textContent=count-uniq;
+    document.getElementById('statManual').textContent=manualCount;
+    histSection.style.display='block';
+    const item=document.createElement('div');
+    item.className='history-item';
+    item.innerHTML=`<span class="hi-num">#${count}</span><span class="hi-data">${data.length>25?data.slice(0,25)+'…':data}</span><span class="hi-time">${timeStr}</span>`;
+    histList.insertBefore(item,histList.firstChild);
+    while(histList.children.length>20) histList.removeChild(histList.lastChild);
+  }
+
+  btnScan.addEventListener('click', ()=>{ if(scanning) stopScan(); else startScan(); });
+
+  async function startScan(){
+    errorBox.classList.remove('show');
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}}});
+      video.srcObject=stream;
+      await video.play();
+      scanning=true;
+      scannerBox.classList.add('active');
+      btnScan.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Stop Scan`;
+      btnScan.className='btn btn-stop';
+      requestAnimationFrame(tick);
+    } catch(e){
+      showError('❌ Tidak dapat mengakses kamera. Pastikan izin kamera diaktifkan.');
+    }
+  }
+
+  function stopScan(){
+    scanning=false;
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    if(raf){ cancelAnimationFrame(raf); raf=null; }
+    scannerBox.classList.remove('active');
+    btnScan.innerHTML=`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg> Mulai Scan QR`;
+    btnScan.className='btn btn-primary';
+  }
+
+  let lastScanned='', lastScannedTime=0;
+  function tick(){
+    if(!scanning) return;
+    if(video.readyState===video.HAVE_ENOUGH_DATA){
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0);
+      const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=jsQR(imgData.data,imgData.width,imgData.height,{inversionAttempts:'dontInvert'});
+      if(code){
+        const now=Date.now();
+        if(code.data!==lastScanned||now-lastScannedTime>2000){
+          lastScanned=code.data; lastScannedTime=now;
+          document.getElementById('scanStatus').textContent='✓ QR Ditemukan!';
+          addScan(code.data);
+          setTimeout(()=>{ if(scanning) document.getElementById('scanStatus').textContent='Arahkan ke QR Code...'; },1000);
+          if(navigator.vibrate) navigator.vibrate(50);
+        }
+      }
+    }
+    raf=requestAnimationFrame(tick);
+  }
+
+  const modal=document.getElementById('modalOverlay');
+  const manualInput=document.getElementById('manualInput');
+  btnManual.addEventListener('click',()=>{ modal.classList.add('show'); setTimeout(()=>manualInput.focus(),100); });
+  document.getElementById('modalCancel').addEventListener('click',()=>{ modal.classList.remove('show'); manualInput.value=''; });
+  document.getElementById('modalConfirm').addEventListener('click',()=>{ const val=manualInput.value.trim(); if(val){ addScan(val,true); manualInput.value=''; modal.classList.remove('show'); } });
+  manualInput.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('modalConfirm').click(); if(e.key==='Escape') document.getElementById('modalCancel').click(); });
+  modal.addEventListener('click',e=>{ if(e.target===modal){ modal.classList.remove('show'); manualInput.value=''; } });
+
+  btnReset.addEventListener('click',()=>{
+    if(count===0) return;
+    if(confirm('Reset semua counter dan riwayat?')){
+      count=0; manualCount=0; scannedData={}; history=[];
+      counterEl.textContent='0';
+      lastScanEl.classList.remove('show');
+      document.getElementById('statUniq').textContent='0';
+      document.getElementById('statDupl').textContent='0';
+      document.getElementById('statManual').textContent='0';
+      histList.innerHTML='';
+      histSection.style.display='none';
+    }
+  });
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  }
+</script>
+</body>
+</html>
