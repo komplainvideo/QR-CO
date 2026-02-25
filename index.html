@@ -10,11 +10,7 @@
   <title>QR Counter</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    :root {
-      --bg:#0a0a0f;--card:#13131a;--border:#1e1e2e;
-      --accent:#00ff88;--accent2:#ff6b35;--text:#e8e8f0;
-      --muted:#6b6b80;--danger:#ff4466;
-    }
+    :root{--bg:#0a0a0f;--card:#13131a;--border:#1e1e2e;--accent:#00ff88;--accent2:#ff6b35;--text:#e8e8f0;--muted:#6b6b80;--danger:#ff4466;--warn:#ffaa00}
     *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden}
     body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
@@ -22,24 +18,58 @@
     .header{text-align:center;padding:24px 0 16px}
     .header h1{font-size:2.2rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,var(--accent),#00ccff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
     .header p{color:var(--muted);font-size:0.8rem;margin-top:4px;font-family:monospace}
+
     .status-bar{text-align:center;font-size:0.75rem;font-family:monospace;color:var(--muted);padding:8px 12px;margin-bottom:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;transition:all 0.3s}
     .status-bar.ready{color:var(--accent);border-color:rgba(0,255,136,0.3)}
     .status-bar.error{color:var(--danger);border-color:rgba(255,68,102,0.3)}
     .status-bar.scanning{color:#00ccff;border-color:rgba(0,204,255,0.3)}
-    .offline-badge{display:none;text-align:center;font-size:0.7rem;font-family:monospace;color:#ffaa00;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:6px 12px;margin-bottom:8px}
+
+    /* DUPLICATE WARNING BANNER */
+    .dup-alert{
+      display:none;position:relative;
+      background:rgba(255,50,50,0.15);
+      border:2px solid var(--danger);
+      border-radius:16px;padding:16px;
+      text-align:center;margin:10px 0;
+      animation:dupPulse 0.5s ease;
+    }
+    .dup-alert.show{display:block}
+    @keyframes dupPulse{
+      0%{transform:scale(0.95);opacity:0}
+      50%{transform:scale(1.03)}
+      100%{transform:scale(1);opacity:1}
+    }
+    .dup-alert .dup-icon{font-size:2rem;display:block;margin-bottom:4px}
+    .dup-alert .dup-title{font-size:1.1rem;font-weight:800;color:var(--danger);letter-spacing:1px}
+    .dup-alert .dup-data{font-size:0.75rem;color:#ffaaaa;font-family:monospace;margin-top:6px;word-break:break-all}
+    .dup-alert .dup-count{font-size:0.8rem;color:var(--warn);margin-top:4px;font-weight:700}
+
+    /* Flash overlays */
+    .success-flash{position:fixed;inset:0;background:rgba(0,255,136,0.1);pointer-events:none;z-index:999;opacity:0;transition:opacity 0.15s}
+    .success-flash.show{opacity:1}
+    .danger-flash{position:fixed;inset:0;background:rgba(255,50,50,0.15);pointer-events:none;z-index:999;opacity:0;transition:opacity 0.15s}
+    .danger-flash.show{opacity:1}
+
+    .offline-badge{display:none;text-align:center;font-size:0.7rem;font-family:monospace;color:var(--warn);background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:6px 12px;margin-bottom:8px}
     .offline-badge.show{display:block}
+
     .counter-display{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 20px;text-align:center;margin:12px 0;position:relative;overflow:hidden}
     .counter-display::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
     .counter-number{font-size:5rem;font-weight:800;font-family:monospace;color:var(--accent);line-height:1;text-shadow:0 0 40px rgba(0,255,136,0.3);transition:transform 0.1s ease}
     .counter-number.bump{transform:scale(1.15)}
+    .counter-number.bump-warn{transform:scale(1.15);color:var(--danger)!important;text-shadow:0 0 40px rgba(255,68,102,0.5)!important}
     .counter-label{font-size:0.7rem;letter-spacing:4px;color:var(--muted);margin-top:8px;font-family:monospace}
     .last-scan{font-size:0.75rem;color:var(--muted);margin-top:10px;font-family:monospace;word-break:break-all;padding:8px 12px;background:rgba(0,255,136,0.05);border-radius:8px;display:none}
     .last-scan.show{display:block}
     .last-scan span{color:var(--accent)}
-    .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0}
-    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center}
-    .stat-card .sv{font-size:1.3rem;font-weight:800;font-family:monospace;color:var(--accent)}
-    .stat-card .sl{font-size:0.6rem;color:var(--muted);letter-spacing:1px;margin-top:2px}
+
+    .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin:10px 0}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 6px;text-align:center}
+    .stat-card.warn-card{border-color:rgba(255,68,102,0.4);background:rgba(255,68,102,0.05)}
+    .stat-card .sv{font-size:1.2rem;font-weight:800;font-family:monospace;color:var(--accent)}
+    .stat-card.warn-card .sv{color:var(--danger)}
+    .stat-card .sl{font-size:0.55rem;color:var(--muted);letter-spacing:1px;margin-top:2px}
+
     .btn-row{display:flex;gap:10px;margin:10px 0}
     .btn{flex:1;padding:14px;border:none;border-radius:14px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:all 0.15s ease;display:flex;align-items:center;justify-content:center;gap:6px}
     .btn:active{transform:scale(0.96)}
@@ -47,8 +77,10 @@
     .btn-stop{background:var(--danger);color:#fff}
     .btn-manual{background:var(--accent2);color:#fff}
     .btn-reset{background:var(--card);color:var(--muted);border:1px solid var(--border)}
+
     #scanner-wrapper{display:none;border-radius:20px;overflow:hidden;margin:12px 0;border:2px solid var(--accent);box-shadow:0 0 30px rgba(0,255,136,0.2);position:relative;background:#000}
     #scanner-wrapper.active{display:block}
+    #scanner-wrapper.dup-mode{border-color:var(--danger);box-shadow:0 0 30px rgba(255,68,102,0.4)}
     #scanner-video{width:100%;display:block;max-height:320px;object-fit:cover}
     #scanner-canvas{display:none}
     .scan-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
@@ -60,17 +92,22 @@
     .sf-bl{bottom:0;left:0;border-width:0 0 3px 3px}
     .scan-line{position:absolute;top:0;left:10px;right:10px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:scanAnim 2s linear infinite;box-shadow:0 0 8px var(--accent)}
     @keyframes scanAnim{0%{top:10px}100%{top:calc(100% - 12px)}}
-    .scan-status{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:0.8rem;color:var(--accent);font-family:monospace;background:rgba(0,0,0,0.6);padding:8px}
-    .success-flash{position:fixed;inset:0;background:rgba(0,255,136,0.1);pointer-events:none;z-index:999;opacity:0;transition:opacity 0.15s}
-    .success-flash.show{opacity:1}
+    .scan-status{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:0.85rem;font-family:monospace;background:rgba(0,0,0,0.7);padding:10px;font-weight:700}
+    .scan-status.ok{color:var(--accent)}
+    .scan-status.dup{color:var(--danger);animation:blinkStatus 0.4s ease 3}
+    @keyframes blinkStatus{0%,100%{opacity:1}50%{opacity:0.3}}
+
     .history-section{margin:12px 0}
     .history-title{font-size:0.7rem;letter-spacing:3px;color:var(--muted);font-family:monospace;margin-bottom:8px}
     .history-list{max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
     .history-item{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.75rem;font-family:monospace;animation:slideIn 0.3s ease}
+    .history-item.is-dup{border-color:rgba(255,68,102,0.4);background:rgba(255,68,102,0.05)}
     @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-    .hi-num{color:var(--accent);font-weight:700;margin-right:8px;flex-shrink:0}
+    .hi-num{color:var(--accent);font-weight:700;margin-right:6px;flex-shrink:0}
+    .hi-dup{color:var(--danger);font-size:0.65rem;margin-right:4px;flex-shrink:0}
     .hi-data{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
     .hi-time{color:var(--muted);font-size:0.65rem;flex-shrink:0}
+
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(4px)}
     .modal-overlay.show{display:flex}
     .modal{background:var(--card);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:24px;width:100%;animation:slideUp 0.3s ease}
@@ -83,27 +120,57 @@
   </style>
 </head>
 <body>
-<div class="success-flash" id="flash"></div>
+<div class="success-flash" id="flashOk"></div>
+<div class="danger-flash" id="flashWarn"></div>
+
 <div class="app">
   <div class="header">
     <h1>⬡ QR COUNTER</h1>
     <p>// scan & tally QR codes</p>
   </div>
+
   <div class="offline-badge" id="offlineBadge">📴 Mode Offline — Semua fitur berjalan normal</div>
   <div class="status-bar" id="statusBar">⏳ Memuat...</div>
+
+  <!-- DUPLICATE ALERT BANNER -->
+  <div class="dup-alert" id="dupAlert">
+    <span class="dup-icon">⚠️</span>
+    <div class="dup-title">⛔ SCAN DOBEL TERDETEKSI!</div>
+    <div class="dup-data" id="dupData">—</div>
+    <div class="dup-count" id="dupCount">Sudah di-scan 2x</div>
+  </div>
+
   <div class="counter-display">
     <div class="counter-number" id="counterNum">0</div>
     <div class="counter-label">TOTAL SCAN</div>
     <div class="last-scan" id="lastScan">Last: <span id="lastData">—</span></div>
   </div>
+
   <div class="stats-row">
+    <div class="stat-card"><div class="sv" id="statTotal">0</div><div class="sl">TOTAL</div></div>
     <div class="stat-card"><div class="sv" id="statUniq">0</div><div class="sl">UNIK</div></div>
-    <div class="stat-card"><div class="sv" id="statDupl">0</div><div class="sl">DUPLIKAT</div></div>
+    <div class="stat-card warn-card"><div class="sv" id="statDupl">0</div><div class="sl">DOBEL ⚠️</div></div>
     <div class="stat-card"><div class="sv" id="statManual">0</div><div class="sl">MANUAL</div></div>
   </div>
+
+  <!-- TOGGLE PERINGATAN DOBEL -->
+  <div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:10px 0">
+    <div>
+      <div style="font-size:0.85rem;font-weight:700;color:var(--text)">⚠️ Peringatan Scan Dobel</div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;font-family:monospace">Nada + banner saat QR sama di-scan lagi</div>
+    </div>
+    <label style="position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0;margin-left:12px">
+      <input type="checkbox" id="toggleDup" checked style="opacity:0;width:0;height:0">
+      <span id="toggleSlider" style="position:absolute;cursor:pointer;inset:0;background:var(--accent);border-radius:28px;transition:0.3s">
+        <span id="toggleThumb" style="position:absolute;height:22px;width:22px;left:26px;bottom:3px;background:white;border-radius:50%;transition:0.3s"></span>
+      </span>
+    </label>
+  </div>
+
   <div class="btn-row">
     <button class="btn btn-primary" id="btnScan">📷 Mulai Scan QR</button>
   </div>
+
   <div id="scanner-wrapper">
     <video id="scanner-video" autoplay muted playsinline webkit-playsinline></video>
     <canvas id="scanner-canvas"></canvas>
@@ -114,17 +181,20 @@
         <div class="scan-line"></div>
       </div>
     </div>
-    <div class="scan-status" id="scanStatus">🔍 Arahkan ke QR Code...</div>
+    <div class="scan-status ok" id="scanStatus">🔍 Arahkan ke QR Code...</div>
   </div>
+
   <div class="btn-row">
     <button class="btn btn-manual" id="btnManual">➕ Manual</button>
     <button class="btn btn-reset" id="btnReset">🔄 Reset</button>
   </div>
+
   <div class="history-section" id="historySection" style="display:none">
     <div class="history-title">// RIWAYAT SCAN</div>
     <div class="history-list" id="historyList"></div>
   </div>
 </div>
+
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
     <h3>➕ Tambah Manual</h3>
@@ -137,196 +207,185 @@
 </div>
 
 <script>
-// ============================================================
-// DETEKSI QR — Pakai BarcodeDetector API (built-in Chrome Android)
-// Tidak butuh library eksternal = 100% offline ready!
-// ============================================================
+const statusBar=document.getElementById('statusBar');
+const counterEl=document.getElementById('counterNum');
+const lastScanEl=document.getElementById('lastScan');
+const lastDataEl=document.getElementById('lastData');
+const scannerWrapper=document.getElementById('scanner-wrapper');
+const video=document.getElementById('scanner-video');
+const btnScan=document.getElementById('btnScan');
+const histSection=document.getElementById('historySection');
+const histList=document.getElementById('historyList');
+const dupAlert=document.getElementById('dupAlert');
+const dupData=document.getElementById('dupData');
+const dupCount=document.getElementById('dupCount');
 
-const statusBar = document.getElementById('statusBar');
-const counterEl = document.getElementById('counterNum');
-const lastScanEl = document.getElementById('lastScan');
-const lastDataEl = document.getElementById('lastData');
-const scannerWrapper = document.getElementById('scanner-wrapper');
-const video = document.getElementById('scanner-video');
-const canvas = document.getElementById('scanner-canvas');
-const ctx = canvas.getContext('2d');
-const btnScan = document.getElementById('btnScan');
-const histSection = document.getElementById('historySection');
-const histList = document.getElementById('historyList');
-const flash = document.getElementById('flash');
+let count=0,manualCount=0,scannedData={},scanning=false,stream=null,raf=null;
+let dupWarningOn=true;
 
-let count=0, manualCount=0, scannedData={}, scanning=false, stream=null, raf=null;
-let lastScanned='', lastScannedTime=0;
-let audioCtx=null;
-let detector=null;
-let scanMethod='none';
+// Toggle duplicate warning
+const toggleDup=document.getElementById('toggleDup');
+const toggleSlider=document.getElementById('toggleSlider');
+const toggleThumb=document.getElementById('toggleThumb');
+toggleDup.addEventListener('change',()=>{
+  dupWarningOn=toggleDup.checked;
+  toggleSlider.style.background=dupWarningOn?'var(--accent)':'#444';
+  toggleThumb.style.left=dupWarningOn?'26px':'3px';
+});
+let lastScanned='',lastScannedTime=0;
+let audioCtx=null,detector=null,scanMethod='none';
+let dupTimeout=null;
 
-// Check offline status
-function updateOnlineStatus(){
-  document.getElementById('offlineBadge').classList.toggle('show', !navigator.onLine);
-}
-window.addEventListener('online', updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
+// Offline
+function updateOnlineStatus(){ document.getElementById('offlineBadge').classList.toggle('show',!navigator.onLine); }
+window.addEventListener('online',updateOnlineStatus);
+window.addEventListener('offline',updateOnlineStatus);
 updateOnlineStatus();
 
-// Init scanner method
+// Init BarcodeDetector
 async function initScanner(){
-  // Method 1: BarcodeDetector (built-in Chrome Android 83+)
   if('BarcodeDetector' in window){
     try{
-      const formats = await BarcodeDetector.getSupportedFormats();
+      const formats=await BarcodeDetector.getSupportedFormats();
       if(formats.includes('qr_code')){
-        detector = new BarcodeDetector({formats:['qr_code','aztec','data_matrix','pdf417','code_128','code_39','ean_13','ean_8','upc_a','upc_e']});
-        scanMethod = 'barcodedetector';
-        statusBar.textContent = '✅ Scanner siap (Mode Native)';
-        statusBar.className = 'status-bar ready';
+        detector=new BarcodeDetector({formats:['qr_code','aztec','data_matrix','pdf417','code_128','code_39','ean_13','ean_8','upc_a','upc_e']});
+        scanMethod='barcodedetector';
+        statusBar.textContent='✅ Scanner siap (Mode Native)';
+        statusBar.className='status-bar ready';
         setTimeout(()=>{ statusBar.style.display='none'; },2000);
         return;
       }
-    }catch(e){ console.log('BarcodeDetector error:', e); }
+    }catch(e){}
   }
-  // No method available
-  statusBar.textContent = '❌ Browser tidak mendukung scan QR. Gunakan Chrome terbaru.';
-  statusBar.className = 'status-bar error';
-  scanMethod = 'none';
+  statusBar.textContent='❌ Browser tidak mendukung. Gunakan Chrome terbaru.';
+  statusBar.className='status-bar error';
 }
+window.addEventListener('load',initScanner);
 
-window.addEventListener('load', initScanner);
-
-// Audio
+// Audio init
 document.addEventListener('touchstart',()=>{
-  if(!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)();
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
 },{once:true});
 
-function playBeep(){
+function initAudio(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+
+// Normal beep (scan OK)
+function playBeepOK(){
   try{
-    if(!audioCtx) audioCtx = new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended') audioCtx.resume();
-    const t = audioCtx.currentTime;
-    [[1800,0,0.15],[2400,0.18,0.38]].forEach(([freq,start,end])=>{
-      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-      o.connect(g); g.connect(audioCtx.destination);
-      o.type='square'; o.frequency.setValueAtTime(freq,t+start);
-      g.gain.setValueAtTime(0.9,t+start);
+    initAudio();
+    const t=audioCtx.currentTime;
+    [[1800,0,0.12],[2400,0.15,0.30]].forEach(([freq,start,end])=>{
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.connect(g);g.connect(audioCtx.destination);
+      o.type='square';o.frequency.setValueAtTime(freq,t+start);
+      g.gain.setValueAtTime(0.8,t+start);
       g.gain.exponentialRampToValueAtTime(0.001,t+end);
-      o.start(t+start); o.stop(t+end);
+      o.start(t+start);o.stop(t+end);
     });
   }catch(e){}
 }
 
-function flashSuccess(){ flash.classList.add('show'); setTimeout(()=>flash.classList.remove('show'),200); }
-function bump(){ counterEl.classList.add('bump'); setTimeout(()=>counterEl.classList.remove('bump'),150); }
+// Warning beep (scan dobel) - nada rendah berulang
+function playBeepWARN(){
+  try{
+    initAudio();
+    const t=audioCtx.currentTime;
+    // 3x beep rendah cepat
+    [0, 0.20, 0.40].forEach(start=>{
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.connect(g);g.connect(audioCtx.destination);
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(300,t+start);
+      o.frequency.linearRampToValueAtTime(200,t+start+0.15);
+      g.gain.setValueAtTime(1.0,t+start);
+      g.gain.exponentialRampToValueAtTime(0.001,t+start+0.18);
+      o.start(t+start);o.stop(t+start+0.18);
+    });
+  }catch(e){}
+}
+
+function flashOK(){ const f=document.getElementById('flashOk'); f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),200); }
+function flashWARN(){ const f=document.getElementById('flashWarn'); f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),400); }
+function bump(warn=false){
+  counterEl.classList.remove('bump','bump-warn');
+  void counterEl.offsetWidth;
+  counterEl.classList.add(warn?'bump-warn':'bump');
+  setTimeout(()=>counterEl.classList.remove('bump','bump-warn'),200);
+}
+
+function showDupAlert(data, times){
+  dupData.textContent = data.length>40 ? data.slice(0,40)+'...' : data;
+  dupCount.textContent = `⚠️ QR ini sudah di-scan ${times}x!`;
+  dupAlert.classList.add('show');
+  scannerWrapper.classList.add('dup-mode');
+  if(dupTimeout) clearTimeout(dupTimeout);
+  dupTimeout = setTimeout(()=>{
+    dupAlert.classList.remove('show');
+    scannerWrapper.classList.remove('dup-mode');
+  }, 3000);
+}
 
 function addScan(data, isManual=false){
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const isDup = scannedData[data] > 0;
   count++;
-  scannedData[data] = (scannedData[data]||0)+1;
+  scannedData[data]=(scannedData[data]||0)+1;
   if(isManual) manualCount++;
-  counterEl.textContent = count;
-  bump(); flashSuccess(); playBeep();
-  lastDataEl.textContent = data.length>30 ? data.slice(0,30)+'...' : data;
+
+  counterEl.textContent=count;
+
+  if(isDup && dupWarningOn){
+    // DUPLICATE! dengan peringatan
+    bump(true);
+    flashWARN();
+    playBeepWARN();
+    showDupAlert(data, scannedData[data]);
+    if(navigator.vibrate) navigator.vibrate([100,50,100,50,100]);
+    document.getElementById('scanStatus').className='scan-status dup';
+    document.getElementById('scanStatus').textContent='⛔ DOBEL! '+( data.length>20?data.slice(0,20)+'…':data);
+    setTimeout(()=>{
+      if(scanning){
+        document.getElementById('scanStatus').className='scan-status ok';
+        document.getElementById('scanStatus').textContent='🔍 Arahkan ke QR Code...';
+      }
+    },2000);
+  } else {
+    // NEW scan atau mode peringatan dimatikan
+    bump(false);
+    flashOK();
+    playBeepOK();
+    if(navigator.vibrate) navigator.vibrate([80,40,80]);
+  }
+
+  lastDataEl.textContent=data.length>30?data.slice(0,30)+'...':data;
   lastScanEl.classList.add('show');
-  const uniq = Object.keys(scannedData).length;
-  document.getElementById('statUniq').textContent = uniq;
-  document.getElementById('statDupl').textContent = count - uniq;
-  document.getElementById('statManual').textContent = manualCount;
-  histSection.style.display = 'block';
-  const item = document.createElement('div');
-  item.className = 'history-item';
-  item.innerHTML = `<span class="hi-num">#${count}</span><span class="hi-data">${data.length>25?data.slice(0,25)+'…':data}</span><span class="hi-time">${timeStr}</span>`;
-  histList.insertBefore(item, histList.firstChild);
+
+  const uniq=Object.keys(scannedData).length;
+  const totalDup=count-uniq;
+  document.getElementById('statTotal').textContent=count;
+  document.getElementById('statUniq').textContent=uniq;
+  document.getElementById('statDupl').textContent=totalDup;
+  document.getElementById('statManual').textContent=manualCount;
+
+  histSection.style.display='block';
+  const item=document.createElement('div');
+  item.className='history-item'+(isDup?' is-dup':'');
+  item.innerHTML=`<span class="hi-num">#${count}</span>${isDup?'<span class="hi-dup">⚠️DOBEL</span>':''}<span class="hi-data">${data.length>22?data.slice(0,22)+'…':data}</span><span class="hi-time">${timeStr}</span>`;
+  histList.insertBefore(item,histList.firstChild);
   while(histList.children.length>30) histList.removeChild(histList.lastChild);
-  if(navigator.vibrate) navigator.vibrate([80,40,80]);
 }
 
-btnScan.addEventListener('click', ()=>{ if(scanning) stopScan(); else startScan(); });
+btnScan.addEventListener('click',()=>{ if(scanning) stopScan(); else startScan(); });
 
 async function startScan(){
-  if(scanMethod==='none'){
-    alert('Browser tidak mendukung. Gunakan Chrome versi terbaru.');
-    return;
-  }
-  statusBar.style.display = 'block';
+  if(scanMethod==='none'){ alert('Browser tidak mendukung. Gunakan Chrome terbaru.'); return; }
+  statusBar.style.display='block';
   try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
-    });
-    video.srcObject = stream;
-    await video.play();
-    scanning = true;
-    scannerWrapper.classList.add('active');
-    btnScan.textContent = '⏹ Stop Scan';
-    btnScan.className = 'btn btn-stop';
-    statusBar.textContent = '🔍 Arahkan ke QR Code...';
-    statusBar.className = 'status-bar scanning';
-    raf = requestAnimationFrame(tick);
-  }catch(e){
-    statusBar.textContent = '❌ Tidak bisa akses kamera. Izinkan kamera di browser.';
-    statusBar.className = 'status-bar error';
-  }
-}
-
-function stopScan(){
-  scanning = false;
-  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  if(raf){ cancelAnimationFrame(raf); raf=null; }
-  scannerWrapper.classList.remove('active');
-  btnScan.textContent = '📷 Mulai Scan QR';
-  btnScan.className = 'btn btn-primary';
-  statusBar.style.display = 'none';
-}
-
-async function tick(){
-  if(!scanning) return;
-  raf = requestAnimationFrame(tick);
-  if(video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth===0) return;
-
-  try{
-    if(scanMethod==='barcodedetector'){
-      // Use native BarcodeDetector — very fast, no library needed
-      const barcodes = await detector.detect(video);
-      if(barcodes && barcodes.length > 0){
-        const data = barcodes[0].rawValue;
-        const now = Date.now();
-        if(data !== lastScanned || now - lastScannedTime > 2500){
-          lastScanned = data; lastScannedTime = now;
-          document.getElementById('scanStatus').textContent = '✅ QR Ditemukan!';
-          addScan(data);
-          setTimeout(()=>{ if(scanning) document.getElementById('scanStatus').textContent='🔍 Arahkan ke QR Code...'; }, 1500);
-        }
-      }
-    }
-  }catch(e){}
-}
-
-// Manual
-const modal = document.getElementById('modalOverlay');
-const manualInput = document.getElementById('manualInput');
-document.getElementById('btnManual').addEventListener('click',()=>{ modal.classList.add('show'); setTimeout(()=>manualInput.focus(),100); });
-document.getElementById('modalCancel').addEventListener('click',()=>{ modal.classList.remove('show'); manualInput.value=''; });
-document.getElementById('modalConfirm').addEventListener('click',()=>{ const val=manualInput.value.trim(); if(val){ addScan(val,true); manualInput.value=''; modal.classList.remove('show'); } });
-manualInput.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('modalConfirm').click(); });
-modal.addEventListener('click',e=>{ if(e.target===modal){ modal.classList.remove('show'); manualInput.value=''; } });
-
-// Reset
-document.getElementById('btnReset').addEventListener('click',()=>{
-  if(count===0) return;
-  if(confirm('Reset semua counter dan riwayat?')){
-    count=0; manualCount=0; scannedData={};
-    counterEl.textContent='0'; lastScanEl.classList.remove('show');
-    ['statUniq','statDupl','statManual'].forEach(id=>document.getElementById(id).textContent='0');
-    histList.innerHTML=''; histSection.style.display='none';
-  }
-});
-
-// Service Worker
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js')
-    .then(()=>console.log('✅ Offline ready!'))
-    .catch(e=>console.log('SW error:',e));
-}
-</script>
-</body>
-</html>
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
+    video.srcObject=stream;
+    awai
