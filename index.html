@@ -328,7 +328,11 @@
     }
   });
 
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').then(()=>console.log('Offline ready!')).catch(e=>console.log(e)); }
+  function updateOnlineStatus(){ const e=document.getElementById('offlineBanner'); if(!navigator.onLine){ if(!e){ const b=document.createElement('div'); b.id='offlineBanner'; b.style.cssText='position:fixed;top:0;left:0;right:0;background:#ff4466;color:#fff;text-align:center;padding:8px;font-family:monospace;font-size:0.8rem;z-index:9999;'; b.textContent='📵 Mode Offline — App tetap berjalan!'; document.body.prepend(b); }} else { if(e) e.remove(); }}
+  window.addEventListener('online',updateOnlineStatus);
+  window.addEventListener('offline',updateOnlineStatus);
+  updateOnlineStatus();
 </script>
 </body>
 </html>
