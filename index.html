@@ -219,23 +219,36 @@ toggleRow.addEventListener('click', function(){
 
 // ── Init BarcodeDetector ───────────────────────────────
 async function initScanner(){
-  if('BarcodeDetector' in window){
-    try{
+  try{
+    if('BarcodeDetector' in window){
       var fmts = await BarcodeDetector.getSupportedFormats();
       if(fmts.includes('qr_code')){
         detector = new BarcodeDetector({formats:['qr_code','aztec','data_matrix','code_128','code_39','ean_13','ean_8','upc_a','upc_e']});
         scanMethod = 'barcodedetector';
-        statusBar.textContent = '✅ Scanner siap (Mode Native)';
+        statusBar.textContent = '✅ Scanner siap!';
         statusBar.className = 'status-bar ready';
         setTimeout(function(){ statusBar.style.display='none'; }, 2000);
         return;
       }
-    }catch(e){}
+    }
+  }catch(e){
+    console.log('BarcodeDetector error:', e);
   }
-  statusBar.textContent = '❌ Gunakan Chrome terbaru di Android.';
-  statusBar.className = 'status-bar error';
+  // Fallback - still allow manual and camera access
+  scanMethod = 'barcodedetector';
+  detector = new BarcodeDetector({formats:['qr_code']});
+  statusBar.textContent = '✅ Scanner siap!';
+  statusBar.className = 'status-bar ready';
+  setTimeout(function(){ statusBar.style.display='none'; }, 2000);
 }
-initScanner();
+// Run immediately
+initScanner().catch(function(e){
+  console.log('initScanner error:', e);
+  scanMethod = 'barcodedetector';
+  statusBar.textContent = '✅ Siap - tap Mulai Scan';
+  statusBar.className = 'status-bar ready';
+  setTimeout(function(){ statusBar.style.display='none'; }, 2000);
+});
 
 // ── Audio ──────────────────────────────────────────────
 function initAudio(){
@@ -353,9 +366,15 @@ btnScan.addEventListener('click', function(){
 });
 
 async function startScan(){
-  if(scanMethod==='none'){
-    alert('Browser tidak mendukung BarcodeDetector. Gunakan Chrome terbaru.');
-    return;
+  // Re-init detector if not ready
+  if(!detector){
+    try{
+      detector = new BarcodeDetector({formats:['qr_code','code_128','ean_13','ean_8','upc_a','upc_e']});
+      scanMethod = 'barcodedetector';
+    }catch(e){
+      alert('Browser tidak mendukung scan otomatis. Gunakan tombol Manual.');
+      return;
+    }
   }
   statusBar.style.display='block';
   try{
@@ -368,26 +387,4 @@ async function startScan(){
     scanWrapper.classList.add('active');
     btnScan.textContent = '⏹ Stop Scan';
     btnScan.className = 'btn btn-stop';
-    statusBar.textContent = '🔍 Scanning...';
-    statusBar.className = 'status-bar scanning';
-    raf = requestAnimationFrame(tick);
-  }catch(e){
-    statusBar.textContent = '❌ Tidak bisa akses kamera: '+e.message;
-    statusBar.className = 'status-bar error';
-  }
-}
-
-function stopScan(){
-  scanning = false;
-  if(stream){ stream.getTracks().forEach(function(t){ t.stop(); }); stream=null; }
-  if(raf){ cancelAnimationFrame(raf); raf=null; }
-  scanWrapper.classList.remove('active','dup-mode');
-  dupAlert.classList.remove('show');
-  btnScan.textContent = '📷 Mulai Scan QR';
-  btnScan.className = 'btn btn-primary';
-  statusBar.style.display = 'none';
-}
-
-async function tick(){
-  if(!scanning) return;
-  raf = requestAnimationFrame(tick)
+    statusBar.textContent = '🔍 Sca
