@@ -159,12 +159,16 @@
       <div style="font-size:0.85rem;font-weight:700;color:var(--text)">⚠️ Peringatan Scan Dobel</div>
       <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;font-family:monospace">Nada + banner saat QR sama di-scan lagi</div>
     </div>
-    <label style="position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0;margin-left:12px">
-      <input type="checkbox" id="toggleDup" checked style="opacity:0;width:0;height:0">
-      <span id="toggleSlider" style="position:absolute;cursor:pointer;inset:0;background:var(--accent);border-radius:28px;transition:0.3s">
-        <span id="toggleThumb" style="position:absolute;height:22px;width:22px;left:26px;bottom:3px;background:white;border-radius:50%;transition:0.3s"></span>
-      </span>
-    </label>
+    <div id="toggleBtn" onclick="
+      var cb=document.getElementById('toggleDup');
+      cb.checked=!cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    " style="position:relative;display:inline-block;width:56px;height:30px;flex-shrink:0;margin-left:12px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="toggleDup" checked style="display:none">
+      <div id="toggleSlider" style="position:absolute;inset:0;background:var(--accent);border-radius:30px;transition:0.3s">
+        <div id="toggleThumb" style="position:absolute;height:24px;width:24px;left:29px;top:3px;background:white;border-radius:50%;transition:0.3s;box-shadow:0 1px 4px rgba(0,0,0,0.3)"></div>
+      </div>
+    </div>
   </div>
 
   <div class="btn-row">
@@ -222,16 +226,6 @@ const dupCount=document.getElementById('dupCount');
 
 let count=0,manualCount=0,scannedData={},scanning=false,stream=null,raf=null;
 let dupWarningOn=true;
-
-// Toggle duplicate warning
-const toggleDup=document.getElementById('toggleDup');
-const toggleSlider=document.getElementById('toggleSlider');
-const toggleThumb=document.getElementById('toggleThumb');
-toggleDup.addEventListener('change',()=>{
-  dupWarningOn=toggleDup.checked;
-  toggleSlider.style.background=dupWarningOn?'var(--accent)':'#444';
-  toggleThumb.style.left=dupWarningOn?'26px':'3px';
-});
 let lastScanned='',lastScannedTime=0;
 let audioCtx=null,detector=null,scanMethod='none';
 let dupTimeout=null;
@@ -260,7 +254,20 @@ async function initScanner(){
   statusBar.textContent='❌ Browser tidak mendukung. Gunakan Chrome terbaru.';
   statusBar.className='status-bar error';
 }
-window.addEventListener('load',initScanner);
+window.addEventListener('load',()=>{
+  initScanner();
+  // Init toggle
+  const toggleDup=document.getElementById('toggleDup');
+  const toggleSlider=document.getElementById('toggleSlider');
+  const toggleThumb=document.getElementById('toggleThumb');
+  if(toggleDup){
+    toggleDup.addEventListener('change',()=>{
+      dupWarningOn=toggleDup.checked;
+      toggleSlider.style.background=dupWarningOn?'var(--accent)':'#444';
+      toggleThumb.style.left=dupWarningOn?'26px':'3px';
+    });
+  }
+});
 
 // Audio init
 document.addEventListener('touchstart',()=>{
@@ -383,9 +390,4 @@ function addScan(data, isManual=false){
 btnScan.addEventListener('click',()=>{ if(scanning) stopScan(); else startScan(); });
 
 async function startScan(){
-  if(scanMethod==='none'){ alert('Browser tidak mendukung. Gunakan Chrome terbaru.'); return; }
-  statusBar.style.display='block';
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
-    video.srcObject=stream;
-    awai
+  if(scanMethod==='none'){ alert('Browser tidak mendukung. Gunakan Chrome te
