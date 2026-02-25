@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -132,6 +131,10 @@ video{width:100%;display:block;max-height:300px;object-fit:cover}
 <div class="btn-row">
   <button class="btn-orange" onclick="openManual()">➕ Manual</button>
   <button class="btn-gray" onclick="doReset()">🔄 Reset</button>
+</div>
+<div class="btn-row">
+  <button class="btn-orange" onclick="exportExcel()">📊 Export Excel</button>
+  <button class="btn-gray" onclick="exportPDF()">📄 Export PDF</button>
 </div>
 
 <div id="hist-wrap" style="display:none">
@@ -344,6 +347,111 @@ function doReset(){
   document.getElementById('hist-list').innerHTML='';
   document.getElementById('hist-wrap').style.display='none';
   document.getElementById('dup-box').classList.remove('show');
+}
+
+// ── Export Excel (CSV) ────────────────────────────────
+function exportExcel(){
+  if(count===0){ alert('Belum ada data scan!'); return; }
+  var rows=[['No','Data QR','Jumlah Scan','Status','Waktu Pertama']];
+  var hist=document.getElementById('hist-list').children;
+  var scanList=[];
+  for(var i=hist.length-1;i>=0;i--){
+    var el=hist[i];
+    var num=el.querySelector('.hn').textContent;
+    var isDup=el.classList.contains('dup');
+    var dataEl=el.querySelector('.hd');
+    var timeEl=el.querySelector('.ht');
+    scanList.push([
+      num.replace('#',''),
+      dataEl.textContent,
+      isDup?'DOBEL':'BARU',
+      timeEl.textContent
+    ]);
+  }
+  // Summary header
+  var nl='\n';
+  var csv='QR COUNTER - HASIL SCAN'+nl;
+  csv+='Tanggal Export:,'+new Date().toLocaleString('id-ID')+nl;
+  csv+='Total Scan:,'+count+nl;
+  csv+='Unik:,'+Object.keys(data).length+nl;
+  csv+='Dobel:,'+(count-Object.keys(data).length)+nl;
+  csv+='Manual:,'+manualCount+nl+nl;
+  csv+='No,Data QR,Status,Waktu'+nl;
+  scanList.forEach(function(r){
+    csv+=r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',')+nl;
+  });
+  csv+=nl+'REKAP PER QR CODE'+nl;
+  csv+='Data QR,Jumlah Scan'+nl;
+  Object.keys(data).forEach(function(k){
+    csv+='"'+k.replace(/"/g,'""')+'",'+data[k]+nl;
+  });
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download='QR_Counter_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Export PDF ─────────────────────────────────────────
+function exportPDF(){
+  if(count===0){ alert('Belum ada data scan!'); return; }
+  var now=new Date().toLocaleString('id-ID');
+  var uniq=Object.keys(data).length;
+  var hist=document.getElementById('hist-list').children;
+  var rows='';
+  for(var i=hist.length-1;i>=0;i--){
+    var el=hist[i];
+    var num=el.querySelector('.hn').textContent;
+    var isDup=el.classList.contains('dup');
+    var dataEl=el.querySelector('.hd').textContent;
+    var timeEl=el.querySelector('.ht').textContent;
+    rows+='<tr style="background:'+(isDup?'#fff0f0':'#fff')+'">'
+      +'<td>'+num+'</td>'
+      +'<td style="word-break:break-all">'+dataEl+'</td>'
+      +'<td style="color:'+(isDup?'#cc0000':'#007700')+';font-weight:700">'+(isDup?'⚠️ DOBEL':'✅ BARU')+'</td>'
+      +'<td>'+timeEl+'</td>'
+      +'</tr>';
+  }
+  var rekap='';
+  Object.keys(data).forEach(function(k){
+    rekap+='<tr><td style="word-break:break-all">'+k+'</td><td style="text-align:center;font-weight:700">'+data[k]+'x</td></tr>';
+  });
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<title>QR Counter Report</title>'
+    +'<style>'
+    +'body{font-family:Arial,sans-serif;padding:20px;color:#111}'
+    +'h1{color:#007700;font-size:1.4rem;margin-bottom:4px}'
+    +'.meta{font-size:0.85rem;color:#555;margin-bottom:16px}'
+    +'.summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}'
+    +'.scard{background:#f5f5f5;border-radius:8px;padding:10px 16px;text-align:center;min-width:80px}'
+    +'.scard .sv{font-size:1.5rem;font-weight:800;color:#007700}'
+    +'.scard.red .sv{color:#cc0000}'
+    +'.scard .sl{font-size:0.7rem;color:#777}'
+    +'table{width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:24px}'
+    +'th{background:#007700;color:white;padding:8px;text-align:left}'
+    +'td{padding:7px 8px;border-bottom:1px solid #eee}'
+    +'h2{font-size:1rem;margin:20px 0 8px;color:#333}'
+    +'@media print{body{padding:0}}'
+    +'</style></head><body>'
+    +'<h1>⬡ QR COUNTER — LAPORAN SCAN</h1>'
+    +'<div class="meta">Dicetak: '+now+'</div>'
+    +'<div class="summary">'
+    +'<div class="scard"><div class="sv">'+count+'</div><div class="sl">TOTAL</div></div>'
+    +'<div class="scard"><div class="sv">'+uniq+'</div><div class="sl">UNIK</div></div>'
+    +'<div class="scard red"><div class="sv">'+(count-uniq)+'</div><div class="sl">DOBEL</div></div>'
+    +'<div class="scard"><div class="sv">'+manualCount+'</div><div class="sl">MANUAL</div></div>'
+    +'</div>'
+    +'<h2>📋 Detail Scan</h2>'
+    +'<table><tr><th>No</th><th>Data QR</th><th>Status</th><th>Waktu</th></tr>'+rows+'</table>'
+    +'<h2>📊 Rekap per QR Code</h2>'
+    +'<table><tr><th>Data QR</th><th>Jumlah Scan</th></tr>'+rekap+'</table>'
+    +'</body></html>';
+  var w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(function(){ w.print(); },500);
 }
 
 // SW
