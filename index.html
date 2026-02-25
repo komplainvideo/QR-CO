@@ -275,6 +275,49 @@
   function flashSuccess(){ flash.classList.add('show'); setTimeout(()=>flash.classList.remove('show'),200); }
   function bump(){ counterEl.classList.add('bump'); setTimeout(()=>counterEl.classList.remove('bump'),150); }
 
+  // Beep sound using Web Audio API
+  let audioCtx = null;
+  function playBeep(){
+    try {
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Resume context if suspended (required by browser policy)
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+
+      const now = audioCtx.currentTime;
+
+      // First beep
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(1800, now);
+      gain1.gain.setValueAtTime(0.8, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc1.start(now);
+      osc1.stop(now + 0.15);
+
+      // Second beep
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(2400, now + 0.18);
+      gain2.gain.setValueAtTime(0.9, now + 0.18);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc2.start(now + 0.18);
+      osc2.stop(now + 0.38);
+    } catch(e){ console.log('Audio error:', e); }
+  }
+
+  // Initialize audio on first user tap (required by browsers)
+  document.addEventListener('touchstart', ()=>{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }, { once: true });
+
   function addScan(data, isManual=false){
     const now=new Date();
     const timeStr=now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -283,7 +326,7 @@
     scannedData[data]=(scannedData[data]||0)+1;
     if(isManual) manualCount++;
     counterEl.textContent=count;
-    bump(); flashSuccess();
+    bump(); flashSuccess(); playBeep();
     lastDataEl.textContent=data.length>30?data.slice(0,30)+'...':data;
     lastScanEl.classList.add('show');
     const uniq=Object.keys(scannedData).length;
