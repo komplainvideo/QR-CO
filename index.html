@@ -263,13 +263,14 @@
       statusBar.textContent='🔍 Arahkan ke QR Code...';
       statusBar.className='status-bar scanning';
 
-      // Get devices
+      // Get back camera using mediaDevices
       let deviceId=undefined;
       try{
-        const devices=await codeReader.listVideoInputDevices();
-        if(devices&&devices.length>0){
-          let chosen=devices[0];
-          for(const d of devices){
+        const allDevices=await navigator.mediaDevices.enumerateDevices();
+        const videoDevices=allDevices.filter(d=>d.kind==='videoinput');
+        if(videoDevices.length>0){
+          let chosen=videoDevices[0];
+          for(const d of videoDevices){
             const lbl=(d.label||'').toLowerCase();
             if(lbl.includes('back')||lbl.includes('rear')||lbl.includes('environment')){ chosen=d; break; }
           }
