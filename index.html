@@ -6,11 +6,12 @@
   <meta name="theme-color" content="#0a0a0f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="QR Counter">
   <title>QR Counter</title>
   <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <!-- ZXing library - better QR detection on Android -->
+  <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
   <style>
     :root {
       --bg: #0a0a0f;
@@ -22,7 +23,7 @@
       --muted: #6b6b80;
       --danger: #ff4466;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -32,93 +33,66 @@
     }
     body::before {
       content: '';
-      position: fixed;
-      inset: 0;
-      background-image: 
+      position: fixed; inset: 0;
+      background-image:
         linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
       background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
+      pointer-events: none; z-index: 0;
     }
     .app {
-      position: relative;
-      z-index: 1;
-      max-width: 420px;
-      margin: 0 auto;
+      position: relative; z-index: 1;
+      max-width: 420px; margin: 0 auto;
       padding: 20px 16px 40px;
     }
-    .header { text-align: center; padding: 24px 0 20px; }
+    .header { text-align: center; padding: 24px 0 16px; }
     .header h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      letter-spacing: -1px;
+      font-size: 2rem; font-weight: 800; letter-spacing: -1px;
       background: linear-gradient(135deg, var(--accent), #00ccff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-    .header p { color: var(--muted); font-size: 0.85rem; margin-top: 4px; font-family: 'Space Mono', monospace; }
+    .header p { color: var(--muted); font-size: 0.8rem; margin-top: 4px; font-family: 'Space Mono', monospace; }
 
-    .lib-status {
-      text-align: center;
-      font-size: 0.75rem;
-      font-family: 'Space Mono', monospace;
-      color: var(--muted);
-      padding: 8px;
-      margin-bottom: 8px;
+    .status-bar {
+      text-align: center; font-size: 0.75rem; font-family: 'Space Mono', monospace;
+      color: var(--muted); padding: 6px 12px; margin-bottom: 8px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
     }
-    .lib-status.ready { color: var(--accent); }
-    .lib-status.error { color: var(--danger); }
+    .status-bar.ready { color: var(--accent); border-color: rgba(0,255,136,0.3); }
+    .status-bar.error { color: var(--danger); border-color: rgba(255,68,102,0.3); }
+    .status-bar.scanning { color: #00ccff; border-color: rgba(0,204,255,0.3); }
 
     .counter-display {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px 20px;
-      text-align: center;
-      margin: 16px 0;
-      position: relative;
-      overflow: hidden;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px 20px; text-align: center; margin: 12px 0;
+      position: relative; overflow: hidden;
     }
     .counter-display::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
     }
     .counter-number {
-      font-size: 5rem;
-      font-weight: 800;
-      font-family: 'Space Mono', monospace;
-      color: var(--accent);
-      line-height: 1;
+      font-size: 5rem; font-weight: 800; font-family: 'Space Mono', monospace;
+      color: var(--accent); line-height: 1;
       text-shadow: 0 0 40px rgba(0,255,136,0.3);
       transition: transform 0.1s ease;
     }
     .counter-number.bump { transform: scale(1.15); }
     .counter-label { font-size: 0.7rem; letter-spacing: 4px; color: var(--muted); margin-top: 8px; font-family: 'Space Mono', monospace; }
     .last-scan {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 12px;
-      font-family: 'Space Mono', monospace;
-      word-break: break-all;
-      padding: 8px 12px;
-      background: rgba(0,255,136,0.05);
-      border-radius: 8px;
-      display: none;
+      font-size: 0.75rem; color: var(--muted); margin-top: 10px;
+      font-family: 'Space Mono', monospace; word-break: break-all;
+      padding: 8px 12px; background: rgba(0,255,136,0.05); border-radius: 8px; display: none;
     }
     .last-scan.show { display: block; }
     .last-scan span { color: var(--accent); }
 
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; }
-    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px; text-align: center; }
-    .stat-card .sv { font-size: 1.4rem; font-weight: 800; font-family: 'Space Mono', monospace; color: var(--accent); }
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; }
+    .stat-card .sv { font-size: 1.3rem; font-weight: 800; font-family: 'Space Mono', monospace; color: var(--accent); }
     .stat-card .sl { font-size: 0.6rem; color: var(--muted); letter-spacing: 1px; margin-top: 2px; }
 
-    .btn-row { display: flex; gap: 10px; margin: 12px 0; }
+    .btn-row { display: flex; gap: 10px; margin: 10px 0; }
     .btn {
       flex: 1; padding: 14px; border: none; border-radius: 14px;
       font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 600;
@@ -131,51 +105,43 @@
     .btn-manual { background: var(--accent2); color: #fff; }
     .btn-reset { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
 
-    .scanner-container {
-      position: relative;
-      background: #000;
-      border-radius: 20px;
-      overflow: hidden;
-      margin: 16px 0;
+    /* ZXing renders video inside this div */
+    #scanner-wrapper {
       display: none;
+      border-radius: 20px; overflow: hidden; margin: 12px 0;
       border: 2px solid var(--accent);
       box-shadow: 0 0 30px rgba(0,255,136,0.2);
+      position: relative; background: #000;
     }
-    .scanner-container.active { display: block; }
-    #video { width: 100%; display: block; max-height: 320px; object-fit: cover; }
-    #canvas { display: none; }
-    .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    #scanner-wrapper.active { display: block; }
+    #scanner-wrapper video {
+      width: 100% !important; height: auto !important;
+      max-height: 320px; object-fit: cover; display: block;
+    }
+    .scan-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
     .scan-frame { width: 200px; height: 200px; position: relative; }
-    .scan-frame::before, .scan-frame::after, .scan-frame .corner-br, .scan-frame .corner-bl {
-      content: ''; position: absolute; width: 30px; height: 30px; border-color: var(--accent); border-style: solid;
+    .scan-frame::before, .scan-frame::after, .sf-br, .sf-bl {
+      content: ''; position: absolute; width: 30px; height: 30px;
+      border-color: var(--accent); border-style: solid;
     }
-    .scan-frame::before { top: 0; left: 0; border-width: 3px 0 0 3px; }
-    .scan-frame::after { top: 0; right: 0; border-width: 3px 3px 0 0; }
-    .scan-frame .corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
-    .scan-frame .corner-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+    .scan-frame::before { top:0; left:0; border-width:3px 0 0 3px; }
+    .scan-frame::after  { top:0; right:0; border-width:3px 3px 0 0; }
+    .sf-br { bottom:0; right:0; border-width:0 3px 3px 0; }
+    .sf-bl { bottom:0; left:0; border-width:0 0 3px 3px; }
     .scan-line {
-      position: absolute; top: 0; left: 10px; right: 10px; height: 2px;
+      position: absolute; top:0; left:10px; right:10px; height:2px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
       animation: scanAnim 2s linear infinite;
       box-shadow: 0 0 8px var(--accent);
     }
     @keyframes scanAnim { 0%{top:10px} 100%{top:calc(100% - 12px)} }
-    .scan-status {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      text-align: center; font-size: 0.8rem; color: var(--accent);
-      font-family: 'Space Mono', monospace;
-      background: rgba(0,0,0,0.6); padding: 8px;
-    }
 
-    .error-box {
-      background: rgba(255,68,102,0.1); border: 1px solid rgba(255,68,102,0.3);
-      border-radius: 12px; padding: 12px 16px; font-size: 0.8rem; color: #ff8899;
-      font-family: 'Space Mono', monospace; display: none; margin: 8px 0;
-    }
-    .error-box.show { display: block; }
-
-    .success-flash { position: fixed; inset: 0; background: rgba(0,255,136,0.1); pointer-events: none; z-index: 999; opacity: 0; transition: opacity 0.15s; }
-    .success-flash.show { opacity: 1; }
+    .success-flash { position:fixed; inset:0; background:rgba(0,255,136,0.1); pointer-events:none; z-index:999; opacity:0; transition:opacity 0.15s; }
+    .success-flash.show { opacity:1; }
 
     .history-section { margin: 12px 0; }
     .history-title { font-size: 0.7rem; letter-spacing: 3px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 8px; }
@@ -187,25 +153,25 @@
       animation: slideIn 0.3s ease;
     }
     @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
-    .history-item .hi-num { color: var(--accent); font-weight: 700; margin-right: 8px; flex-shrink: 0; }
-    .history-item .hi-data { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
-    .history-item .hi-time { color: var(--muted); font-size: 0.65rem; flex-shrink: 0; }
+    .hi-num { color: var(--accent); font-weight:700; margin-right:8px; flex-shrink:0; }
+    .hi-data { color: var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:8px; }
+    .hi-time { color: var(--muted); font-size:0.65rem; flex-shrink:0; }
 
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; align-items: flex-end; backdrop-filter: blur(4px); }
-    .modal-overlay.show { display: flex; }
-    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 24px 24px 0 0; padding: 24px; width: 100%; animation: slideUp 0.3s ease; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:none; align-items:flex-end; backdrop-filter:blur(4px); }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--card); border:1px solid var(--border); border-radius:24px 24px 0 0; padding:24px; width:100%; animation:slideUp 0.3s ease; }
     @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-    .modal h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 16px; }
-    .modal input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.9rem; outline: none; margin-bottom: 12px; }
-    .modal input:focus { border-color: var(--accent); }
-    .modal-btns { display: flex; gap: 10px; }
-    .modal-btns .btn { flex: 1; }
+    .modal h3 { font-size:1.1rem; font-weight:800; margin-bottom:16px; }
+    .modal input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); font-family:'Space Mono',monospace; font-size:0.9rem; outline:none; margin-bottom:12px; }
+    .modal input:focus { border-color:var(--accent); }
+    .modal-btns { display:flex; gap:10px; }
+    .modal-btns .btn { flex:1; }
 
-    .install-banner { background: linear-gradient(135deg,#1a1a2e,#16213e); border: 1px solid rgba(0,255,136,0.2); border-radius: 14px; padding: 14px 16px; display: none; align-items: center; gap: 10px; margin: 12px 0; }
-    .install-banner.show { display: flex; }
-    .install-banner p { flex: 1; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
-    .install-banner p strong { color: var(--accent); }
-    .btn-install { background: var(--accent); color: #0a0a0f; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+    .install-banner { background:linear-gradient(135deg,#1a1a2e,#16213e); border:1px solid rgba(0,255,136,0.2); border-radius:14px; padding:14px 16px; display:none; align-items:center; gap:10px; margin:10px 0; }
+    .install-banner.show { display:flex; }
+    .install-banner p { flex:1; font-size:0.8rem; color:var(--muted); line-height:1.4; }
+    .install-banner p strong { color:var(--accent); }
+    .btn-install { background:var(--accent); color:#0a0a0f; border:none; border-radius:8px; padding:8px 14px; font-family:'Syne',sans-serif; font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -216,7 +182,7 @@
     <p>// scan & tally QR codes</p>
   </div>
 
-  <div class="lib-status" id="libStatus">⏳ Memuat scanner...</div>
+  <div class="status-bar" id="statusBar">⏳ Memuat scanner...</div>
 
   <div class="install-banner" id="installBanner">
     <p><strong>Install sebagai App!</strong><br>Tap ⋮ → Add to Home Screen</p>
@@ -239,20 +205,16 @@
     <button class="btn btn-primary" id="btnScan">📷 Mulai Scan QR</button>
   </div>
 
-  <div class="scanner-container" id="scannerBox">
-    <video id="video" autoplay muted playsinline webkit-playsinline></video>
-    <canvas id="canvas"></canvas>
+  <div id="scanner-wrapper">
+    <div id="zxing-video-container"></div>
     <div class="scan-overlay">
       <div class="scan-frame">
         <div class="scan-line"></div>
-        <div class="corner-br"></div>
-        <div class="corner-bl"></div>
+        <div class="sf-br"></div>
+        <div class="sf-bl"></div>
       </div>
     </div>
-    <div class="scan-status" id="scanStatus">🔍 Arahkan ke QR Code...</div>
   </div>
-
-  <div class="error-box" id="errorBox"></div>
 
   <div class="btn-row">
     <button class="btn btn-manual" id="btnManual">➕ Manual</button>
@@ -276,44 +238,32 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
-  // Fallback if first CDN fails
-  if(typeof jsQR === 'undefined') {
-    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"><\/script>');
-  }
-</script>
-<script>
-  const libStatusEl = document.getElementById('libStatus');
-  
-  function checkLib() {
-    if(typeof jsQR === 'function') {
-      libStatusEl.textContent = '✅ Scanner siap!';
-      libStatusEl.className = 'lib-status ready';
-      setTimeout(()=>{ libStatusEl.style.display='none'; }, 2000);
+  const statusBar = document.getElementById('statusBar');
+  const counterEl = document.getElementById('counterNum');
+  const lastScanEl = document.getElementById('lastScan');
+  const lastDataEl = document.getElementById('lastData');
+  const scannerWrapper = document.getElementById('scanner-wrapper');
+  const btnScan = document.getElementById('btnScan');
+  const histSection = document.getElementById('historySection');
+  const histList = document.getElementById('historyList');
+  const flash = document.getElementById('flash');
+
+  let count=0, manualCount=0, scannedData={}, scanning=false, codeReader=null, deferredPrompt=null;
+
+  // Wait for ZXing to load
+  window.addEventListener('load', ()=>{
+    if(typeof ZXing !== 'undefined') {
+      statusBar.textContent = '✅ Scanner siap digunakan!';
+      statusBar.className = 'status-bar ready';
+      setTimeout(()=>{ statusBar.style.display='none'; }, 2000);
     } else {
-      libStatusEl.textContent = '❌ Gagal memuat. Coba refresh halaman.';
-      libStatusEl.className = 'lib-status error';
+      statusBar.textContent = '❌ Gagal memuat. Coba refresh halaman.';
+      statusBar.className = 'status-bar error';
     }
-  }
-  window.addEventListener('load', checkLib);
+  });
 
-  let count=0, manualCount=0, scannedData={}, scanning=false, stream=null, raf=null, deferredPrompt=null;
-  let lastScanned='', lastScannedTime=0;
-
-  const counterEl=document.getElementById('counterNum');
-  const lastScanEl=document.getElementById('lastScan');
-  const lastDataEl=document.getElementById('lastData');
-  const scannerBox=document.getElementById('scannerBox');
-  const video=document.getElementById('video');
-  const canvas=document.getElementById('canvas');
-  const ctx=canvas.getContext('2d');
-  const btnScan=document.getElementById('btnScan');
-  const errorBox=document.getElementById('errorBox');
-  const histSection=document.getElementById('historySection');
-  const histList=document.getElementById('historyList');
-  const flash=document.getElementById('flash');
-
+  // PWA Install
   window.addEventListener('beforeinstallprompt', e=>{
     e.preventDefault(); deferredPrompt=e;
     document.getElementById('installBanner').classList.add('show');
@@ -322,7 +272,6 @@
     if(deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; document.getElementById('installBanner').classList.remove('show'); }); }
   });
 
-  function showError(msg){ errorBox.textContent=msg; errorBox.classList.add('show'); }
   function flashSuccess(){ flash.classList.add('show'); setTimeout(()=>flash.classList.remove('show'),200); }
   function bump(){ counterEl.classList.add('bump'); setTimeout(()=>counterEl.classList.remove('bump'),150); }
 
@@ -347,66 +296,85 @@
     item.innerHTML=`<span class="hi-num">#${count}</span><span class="hi-data">${data.length>25?data.slice(0,25)+'…':data}</span><span class="hi-time">${timeStr}</span>`;
     histList.insertBefore(item,histList.firstChild);
     while(histList.children.length>30) histList.removeChild(histList.lastChild);
-    if(navigator.vibrate) navigator.vibrate([50,30,50]);
+    if(navigator.vibrate) navigator.vibrate([80,40,80]);
   }
 
-  btnScan.addEventListener('click',()=>{ if(scanning) stopScan(); else startScan(); });
+  btnScan.addEventListener('click', async ()=>{
+    if(scanning){ stopScan(); return; }
 
-  async function startScan(){
-    errorBox.classList.remove('show');
-    if(typeof jsQR !== 'function'){
-      showError('❌ Library belum siap. Refresh halaman dan coba lagi.');
+    if(typeof ZXing === 'undefined'){
+      alert('Library belum siap. Refresh halaman dulu.');
       return;
     }
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: {ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
-      });
-      video.srcObject = stream;
-      video.setAttribute('playsinline','true');
-      await video.play();
-      scanning=true;
-      scannerBox.classList.add('active');
-      btnScan.textContent='⏹ Stop Scan';
-      btnScan.className='btn btn-stop';
-      requestAnimationFrame(tick);
-    } catch(e) {
-      showError('❌ Tidak dapat mengakses kamera. Pastikan izin kamera diaktifkan.');
-    }
-  }
 
-  function stopScan(){
-    scanning=false;
-    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
-    if(raf){ cancelAnimationFrame(raf); raf=null; }
-    scannerBox.classList.remove('active');
-    btnScan.textContent='📷 Mulai Scan QR';
-    btnScan.className='btn btn-primary';
-  }
-
-  function tick(){
-    if(!scanning) return;
-    raf=requestAnimationFrame(tick);
-    if(video.readyState < video.HAVE_ENOUGH_DATA || video.videoWidth===0) return;
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
     try {
-      const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      let code=jsQR(imgData.data,imgData.width,imgData.height,{inversionAttempts:'dontInvert'});
-      if(!code) code=jsQR(imgData.data,imgData.width,imgData.height,{inversionAttempts:'invertFirst'});
-      if(code && code.data){
-        const now=Date.now();
-        if(code.data!==lastScanned || now-lastScannedTime>2500){
-          lastScanned=code.data; lastScannedTime=now;
-          document.getElementById('scanStatus').textContent='✅ QR Ditemukan!';
-          addScan(code.data);
-          setTimeout(()=>{ if(scanning) document.getElementById('scanStatus').textContent='🔍 Arahkan ke QR Code...'; },1500);
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      
+      // Get available cameras
+      const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+      
+      // Prefer back camera
+      let selectedDevice = devices[0];
+      for(const d of devices){
+        const label = d.label.toLowerCase();
+        if(label.includes('back') || label.includes('rear') || label.includes('environment')){
+          selectedDevice = d; break;
         }
       }
-    } catch(e){}
+
+      const videoContainer = document.getElementById('zxing-video-container');
+      videoContainer.innerHTML = '';
+      const videoEl = document.createElement('video');
+      videoEl.setAttribute('playsinline','true');
+      videoEl.setAttribute('autoplay','true');
+      videoEl.setAttribute('muted','true');
+      videoContainer.appendChild(videoEl);
+
+      scannerWrapper.classList.add('active');
+      scanning = true;
+      btnScan.textContent = '⏹ Stop Scan';
+      btnScan.className = 'btn btn-stop';
+      statusBar.style.display = 'block';
+      statusBar.textContent = '🔍 Arahkan ke QR Code...';
+      statusBar.className = 'status-bar scanning';
+
+      await codeReader.decodeFromVideoDevice(
+        selectedDevice ? selectedDevice.deviceId : undefined,
+        videoEl,
+        (result, err) => {
+          if(result){
+            const data = result.getText();
+            addScan(data);
+            statusBar.textContent = '✅ QR Ditemukan: ' + (data.length>20?data.slice(0,20)+'…':data);
+            setTimeout(()=>{
+              if(scanning) statusBar.textContent='🔍 Arahkan ke QR Code...';
+            }, 1500);
+          }
+        }
+      );
+    } catch(e) {
+      console.error(e);
+      scanning = false;
+      scannerWrapper.classList.remove('active');
+      btnScan.textContent = '📷 Mulai Scan QR';
+      btnScan.className = 'btn btn-primary';
+      statusBar.textContent = '❌ ' + (e.message || 'Tidak dapat mengakses kamera');
+      statusBar.className = 'status-bar error';
+      statusBar.style.display = 'block';
+    }
+  });
+
+  function stopScan(){
+    scanning = false;
+    if(codeReader){ codeReader.reset(); codeReader=null; }
+    scannerWrapper.classList.remove('active');
+    document.getElementById('zxing-video-container').innerHTML = '';
+    btnScan.textContent = '📷 Mulai Scan QR';
+    btnScan.className = 'btn btn-primary';
+    statusBar.style.display = 'none';
   }
 
+  // Manual
   const modal=document.getElementById('modalOverlay');
   const manualInput=document.getElementById('manualInput');
   document.getElementById('btnManual').addEventListener('click',()=>{ modal.classList.add('show'); setTimeout(()=>manualInput.focus(),100); });
@@ -415,6 +383,7 @@
   manualInput.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('modalConfirm').click(); if(e.key==='Escape') document.getElementById('modalCancel').click(); });
   modal.addEventListener('click',e=>{ if(e.target===modal){ modal.classList.remove('show'); manualInput.value=''; } });
 
+  // Reset
   document.getElementById('btnReset').addEventListener('click',()=>{
     if(count===0) return;
     if(confirm('Reset semua counter dan riwayat?')){
