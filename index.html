@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -269,8 +270,10 @@ async function startScan(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
     var vid=document.getElementById('vid');
+    vid.srcObject=null;
+    vid.load();
     vid.srcObject=stream;
-    await vid.play();
+    try{ await vid.play(); }catch(e){ /* interrupted ok */ }
     scanning=true;
     document.getElementById('cam-wrap').classList.add('active');
     document.getElementById('btn-scan').textContent='⏹ Stop Scan';
