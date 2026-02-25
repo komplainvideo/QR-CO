@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test</title>
+</head>
+<body style="background:#000;color:#0f0;font-family:monospace;padding:20px">
+
+<h2>TEST PAGE</h2>
+<p id="status">Menunggu...</p>
+<button id="btn" style="padding:20px;font-size:1.2rem;margin:20px 0;display:block;background:lime;color:black;border:none;border-radius:10px;width:100%">
+  TAP SINI - TEST TOMBOL
+</button>
+<div id="result" style="margin-top:20px;padding:10px;border:1px solid #0f0;min-height:50px"></div>
+
+<script>
+document.getElementById('status').textContent = 'JS berjalan OK ✅';
+
+document.getElementById('btn').addEventListener('click', function() {
+  document.getElementById('result').innerHTML += '<p>✅ Tombol berfungsi! - ' + new Date().toLocaleTimeString() + '</p>';
+});
+
+// Test BarcodeDetector
+if('BarcodeDetector' in window) {
+  document.getElementById('result').innerHTML += '<p>✅ BarcodeDetector tersedia!</p>';
+} else {
+  document.getElementById('result').innerHTML += '<p>❌ BarcodeDetector TIDAK tersedia di browser ini</p>';
+}
+</script>
+</body>
+</html>
